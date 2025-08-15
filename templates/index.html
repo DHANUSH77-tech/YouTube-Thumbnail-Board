@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Thumbnail Board</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Apply the Inter font family */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Hide spinner by default */
+        .spinner { display: none; }
+        .group:hover .group-hover-show { opacity: 1; }
+        
+        /* Subtle background pattern for dark mode */
+        .dark .main-content-bg {
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        
+        /* Modal transitions */
+        #add-board-modal.hidden { display: none; }
+        .modal-overlay { transition: opacity 0.3s ease-in-out; }
+        .modal-content { transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-black text-slate-200 overflow-hidden">
+
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-red-950/80 backdrop-blur-sm border-r border-white/10 flex flex-col flex-shrink-0">
+            <div class="p-4 border-b border-white/10 flex items-center gap-3">
+                 <svg class="h-6 w-6 text-yellow-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <h1 class="text-lg font-extrabold text-white">Thumbnail Board</h1>
+            </div>
+            <nav id="board-list" class="flex-1 p-2 space-y-1 overflow-y-auto">
+                <!-- Board links will be injected by JS -->
+            </nav>
+            <div class="p-2 border-t border-white/10">
+                <button id="add-board-button" class="w-full flex items-center gap-2 text-left py-2 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:bg-red-900 transition-colors duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add New Board
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-1 flex flex-col overflow-y-auto main-content-bg">
+            <div class="p-6 md:p-8">
+                <!-- Header -->
+                <div id="main-header" class="mb-8">
+                    <h2 id="board-title" class="text-2xl md:text-3xl font-bold text-white"></h2>
+                    <p id="board-subtitle" class="text-slate-400 mt-1">Add a YouTube URL to save a thumbnail to this board.</p>
+                </div>
+
+                <!-- Input Form -->
+                <form id="thumbnail-form" class="flex flex-col md:flex-row items-center gap-3 mb-8">
+                    <div class="relative w-full">
+                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
+                        <input type="url" id="youtube-url" placeholder="Paste YouTube URL here..." class="w-full pl-12 pr-4 py-3 bg-gray-800/50 border border-white/10 rounded-lg text-slate-200 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 focus:outline-none transition-all" required>
+                    </div>
+                    <button type="submit" id="submit-button" class="w-full md:w-auto bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex-shrink-0 flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/40">
+                        <span id="button-text">Add to Board</span>
+                        <svg class="spinner h-5 w-5 animate-spin text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    </button>
+                </form>
+                <div id="error-message" class="text-red-500 text-center mb-4 font-medium hidden"></div>
+
+                <!-- Thumbnail Grid -->
+                <div id="thumbnail-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <!-- Thumbnail cards will be injected by JS -->
+                </div>
+                 <div id="empty-state" class="hidden text-center py-16">
+                    <h3 class="text-xl font-semibold text-slate-300">This board is empty</h3>
+                    <p class="text-slate-400 mt-2">Add a YouTube link above to get started.</p>
+                </div>
+                 <div id="no-boards-state" class="hidden text-center py-16">
+                    <h3 class="text-xl font-semibold text-slate-300">No Boards Found</h3>
+                    <p class="text-slate-400 mt-2">Click "+ Add New Board" in the sidebar to create your first board.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Board Modal -->
+    <div id="add-board-modal" class="fixed inset-0 z-50 items-center justify-center hidden">
+        <div id="modal-overlay" class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0"></div>
+        <div id="modal-content" class="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 opacity-0 scale-95">
+            <h3 class="text-lg font-bold text-white">Create a New Board</h3>
+            <p class="text-sm text-slate-400 mt-1">Give your new board a name.</p>
+            <form id="new-board-form" class="mt-4">
+                <input type="text" id="new-board-name" placeholder="e.g., Project X Thumbnails" class="w-full px-4 py-2 bg-gray-700 border border-white/10 rounded-md focus:ring-2 focus:ring-yellow-400 focus:outline-none" required>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" id="cancel-modal-button" class="py-2 px-4 rounded-md text-sm font-semibold bg-gray-700 hover:bg-gray-600 transition-colors">Cancel</button>
+                    <button type="submit" class="py-2 px-4 rounded-md text-sm font-semibold text-black bg-yellow-400 hover:bg-yellow-500 transition-colors">Save Board</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const boardList = document.getElementById('board-list');
+        const addBoardButton = document.getElementById('add-board-button');
+        const mainHeader = document.getElementById('main-header');
+        const boardTitle = document.getElementById('board-title');
+        const thumbnailForm = document.getElementById('thumbnail-form');
+        const urlInput = document.getElementById('youtube-url');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const spinner = submitButton.querySelector('.spinner');
+        const errorMessage = document.getElementById('error-message');
+        const thumbnailGrid = document.getElementById('thumbnail-grid');
+        const emptyState = document.getElementById('empty-state');
+        const noBoardsState = document.getElementById('no-boards-state');
+        
+        // Modal Elements
+        const addBoardModal = document.getElementById('add-board-modal');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalContent = document.getElementById('modal-content');
+        const newBoardForm = document.getElementById('new-board-form');
+        const newBoardNameInput = document.getElementById('new-board-name');
+        const cancelModalButton = document.getElementById('cancel-modal-button');
+
+        // --- State Management ---
+        let state = {
+            boards: [],
+            activeBoardName: null
+        };
+
+        const saveState = () => {
+            // State is now managed by the backend
+        };
+
+        const loadState = async () => {
+            try {
+                const response = await fetch('/api/boards');
+                if (response.ok) {
+                    const boards = await response.json();
+                    state.boards = boards.map(board => ({
+                        name: board.name,
+                        thumbnails: board.thumbnails
+                    }));
+                    
+                    if (state.boards.length > 0 && !state.activeBoardName) {
+                        state.activeBoardName = state.boards[0].name;
+                    }
+                } else {
+                    console.error('Failed to load boards');
+                    // Create default board if no boards exist
+                    if (state.boards.length === 0) {
+                        state.boards = [{ name: 'My First Board', thumbnails: [] }];
+                        state.activeBoardName = 'My First Board';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading boards:', error);
+                // Create default board if error occurs
+                if (state.boards.length === 0) {
+                    state.boards = [{ name: 'My First Board', thumbnails: [] }];
+                    state.activeBoardName = 'My First Board';
+                }
+            }
+        };
+
+        // --- Render Functions ---
+        const render = () => {
+            renderSidebar();
+            renderMainContent();
+        };
+
+        const renderSidebar = () => {
+            boardList.innerHTML = '';
+            state.boards.forEach(board => {
+                const isActive = board.name === state.activeBoardName;
+                
+                const boardItem = document.createElement('div');
+                boardItem.className = 'flex items-center justify-between group rounded-lg';
+                
+                const boardLink = document.createElement('a');
+                boardLink.href = '#';
+                boardLink.dataset.boardName = board.name;
+                boardLink.className = `flex-grow py-2 px-3 text-sm font-semibold transition-colors duration-200 rounded-lg ${isActive ? 'bg-yellow-400/10 text-yellow-400' : 'text-slate-300 hover:bg-red-900'}`;
+                boardLink.textContent = board.name;
+                boardLink.onclick = (e) => {
+                    e.preventDefault();
+                    state.activeBoardName = board.name;
+                    render();
+                };
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'ml-2 p-1 rounded-md text-slate-400 hover:bg-red-500/80 hover:text-white opacity-0 group-hover:opacity-100 transition-all flex-shrink-0';
+                deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+                deleteBtn.onclick = async () => {
+                    try {
+                        const response = await fetch(`/api/boards/${encodeURIComponent(board.name)}`, {
+                            method: 'DELETE'
+                        });
+                        if (response.ok) {
+                            state.boards = state.boards.filter(b => b.name !== board.name);
+                            if (state.activeBoardName === board.name) {
+                                state.activeBoardName = state.boards.length > 0 ? state.boards[0].name : null;
+                            }
+                            render();
+                        } else {
+                            console.error('Failed to delete board');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting board:', error);
+                    }
+                };
+
+                boardItem.appendChild(boardLink);
+                boardItem.appendChild(deleteBtn);
+                boardList.appendChild(boardItem);
+            });
+        };
+
+        const renderMainContent = () => {
+            if (state.boards.length === 0) {
+                mainHeader.classList.add('hidden');
+                thumbnailForm.classList.add('hidden');
+                thumbnailGrid.classList.add('hidden');
+                emptyState.classList.add('hidden');
+                noBoardsState.classList.remove('hidden');
+                return;
+            }
+
+            mainHeader.classList.remove('hidden');
+            thumbnailForm.classList.remove('hidden');
+            noBoardsState.classList.add('hidden');
+            
+            const activeBoard = state.boards.find(b => b.name === state.activeBoardName);
+            if (!activeBoard) {
+                 if (state.boards.length > 0) {
+                    state.activeBoardName = state.boards[0].name;
+                    render();
+                }
+                return;
+            };
+
+            boardTitle.textContent = activeBoard.name;
+            thumbnailGrid.innerHTML = '';
+
+            if (activeBoard.thumbnails.length === 0) {
+                emptyState.classList.remove('hidden');
+                thumbnailGrid.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                thumbnailGrid.classList.remove('hidden');
+                activeBoard.thumbnails.forEach(videoId => {
+                    const card = createThumbnailCard(videoId);
+                    thumbnailGrid.appendChild(card);
+                });
+            }
+        };
+        
+        const createThumbnailCard = (videoId) => {
+            const card = document.createElement('div');
+            card.className = 'group relative aspect-video bg-gray-800 rounded-xl overflow-hidden shadow-lg transition-transform duration-300 hover:scale-105';
+            
+            const img = document.createElement('img');
+            img.src = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+            img.alt = 'YouTube Thumbnail';
+            img.className = 'w-full h-full object-cover';
+            img.onerror = () => { img.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`; };
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'absolute inset-0 bg-black/50 opacity-0 group-hover-show transition-opacity duration-300 flex items-center justify-center gap-4 p-4';
+
+            const downloadBtn = createCardButton('Download', 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-10M12 15V3');
+            downloadBtn.onclick = () => downloadImage(img.src, `thumbnail_${videoId}.jpg`);
+
+            const deleteBtn = createCardButton('Delete', 'M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-6 5v6m4-6v6');
+            deleteBtn.onclick = async () => {
+                try {
+                    const response = await fetch(`/api/thumbnails/${videoId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ board_name: state.activeBoardName })
+                    });
+                    if (response.ok) {
+                        const activeBoard = state.boards.find(b => b.name === state.activeBoardName);
+                        activeBoard.thumbnails = activeBoard.thumbnails.filter(id => id !== videoId);
+                        render();
+                    } else {
+                        console.error('Failed to delete thumbnail');
+                    }
+                } catch (error) {
+                    console.error('Error deleting thumbnail:', error);
+                }
+            };
+
+            overlay.append(downloadBtn, deleteBtn);
+            card.append(img, overlay);
+            return card;
+        };
+
+        const createCardButton = (text, dPath) => {
+            const button = document.createElement('button');
+            button.className = 'bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors';
+            button.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="${dPath}"/></svg><span>${text}</span>`;
+            return button;
+        };
+
+
+        // --- Modal Functions ---
+        const showModal = () => {
+            addBoardModal.classList.remove('hidden');
+            addBoardModal.classList.add('flex');
+            setTimeout(() => {
+                modalOverlay.classList.remove('opacity-0');
+                modalContent.classList.remove('opacity-0', 'scale-95');
+                newBoardNameInput.focus();
+            }, 10);
+        };
+
+        const hideModal = () => {
+            modalOverlay.classList.add('opacity-0');
+            modalContent.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                addBoardModal.classList.add('hidden');
+                addBoardModal.classList.remove('flex');
+                newBoardNameInput.value = ''; // Clear input
+            }, 300);
+        };
+
+        // --- Event Handlers ---
+        addBoardButton.onclick = showModal;
+        cancelModalButton.onclick = hideModal;
+        modalOverlay.onclick = hideModal;
+
+        newBoardForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = newBoardNameInput.value.trim();
+            if (name) {
+                try {
+                    const response = await fetch('/api/boards', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name: name })
+                    });
+                    if (response.ok) {
+                        const newBoard = { name: name, thumbnails: [] };
+                        state.boards.push(newBoard);
+                        state.activeBoardName = name;
+                        render();
+                        hideModal();
+                    } else {
+                        console.error('Failed to create board');
+                    }
+                } catch (error) {
+                    console.error('Error creating board:', error);
+                }
+            }
+        });
+
+        thumbnailForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            errorMessage.classList.add('hidden');
+
+            const url = urlInput.value.trim();
+            const videoId = extractVideoId(url);
+            if (videoId && state.activeBoardName) {
+                try {
+                    const response = await fetch('/api/thumbnails', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            url: url,
+                            board_name: state.activeBoardName
+                        })
+                    });
+                    if (response.ok) {
+                        const activeBoard = state.boards.find(b => b.name === state.activeBoardName);
+                        if (activeBoard && !activeBoard.thumbnails.includes(videoId)) {
+                            activeBoard.thumbnails.unshift(videoId);
+                            renderMainContent();
+                        }
+                        urlInput.value = '';
+                    } else {
+                        const errorData = await response.json();
+                        errorMessage.textContent = errorData.error || 'Failed to add thumbnail';
+                        errorMessage.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error adding thumbnail:', error);
+                    errorMessage.textContent = 'Failed to add thumbnail. Please try again.';
+                    errorMessage.classList.remove('hidden');
+                }
+            } else {
+                errorMessage.textContent = 'Could not find a valid YouTube video ID. Please check the link.';
+                errorMessage.classList.remove('hidden');
+            }
+            setLoading(false);
+        });
+        
+        // --- Utility Functions ---
+        const setLoading = (isLoading) => {
+            submitButton.disabled = isLoading;
+            buttonText.style.display = isLoading ? 'none' : 'block';
+            spinner.style.display = isLoading ? 'block' : 'none';
+        };
+
+        const extractVideoId = (url) => {
+            const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+            return url.match(regex)?.[1] || null;
+        };
+
+        const downloadImage = async (imageSrc, filename) => {
+            try {
+                const response = await fetch(imageSrc);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.error('Download failed:', error);
+                errorMessage.textContent = 'Could not download image.';
+                errorMessage.classList.remove('hidden');
+            }
+        };
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadState();
+            render();
+        });
+    </script>
+</body>
+</html>
+
